@@ -1,4 +1,10 @@
-﻿using System;
+﻿#region Using
+
+using System;
+using System.Linq;
+using WarSystem.MachineLearning.Clusters;
+
+#endregion
 
 namespace ClusterNumeric
 {
@@ -19,8 +25,9 @@ namespace ClusterNumeric
             Console.WriteLine("\nSetting numClusters to " + numClusters);
 
             Console.WriteLine("\nStarting clustering using k-means algorithm");
-            var c = new Clusterer(numClusters);
-            int[] clustering = c.Cluster(rawData);
+            IKMeans c = new KMeans(numClusters);
+            c.Fit(rawData);
+            var clustering = c.Predict(rawData).ToArray();
             var result = string.Join("\n", clustering);
             Console.WriteLine("Clustering complete\n");
 
@@ -32,7 +39,6 @@ namespace ClusterNumeric
 
             Console.WriteLine("\nEnd k-means clustering demo\n");
             Console.ReadLine();
-
         }
 
         private static double[][] GetData()

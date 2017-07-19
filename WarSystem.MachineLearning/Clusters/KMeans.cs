@@ -1,27 +1,59 @@
-﻿using System;
+﻿#region Using
 
-namespace ClusterNumeric
+using System;
+using System.Collections.Generic;
+
+#endregion
+
+namespace WarSystem.MachineLearning.Clusters
 {
-    public class Clusterer
+    #region Interfaces 
+
+    public interface IKMeans
     {
-        private readonly int _numClusters;
+        double[][] Centroids { get; }
+        int Clusters { get; }
+
+        void Fit(double[][] data);
+        IEnumerable<int> Predict(double[][] data);
+    }
+
+    #endregion
+
+    public class KMeans :
+        IKMeans
+    {
+        #region Constructors and Variables
+
         private readonly Random _rnd;
-        private double[][] _centroids;
         private int[] _clustering;
-        public Clusterer(int numClusters)
+
+        public KMeans(int numClusters)
         {
-            _numClusters = numClusters;
-            _centroids = new double[numClusters][];
+            Clusters = numClusters;
+            Centroids = new double[numClusters][];
             _rnd = new Random(0);
         }
 
-        internal int[] Cluster(double[][] data)
+        public KMeans(double[][] centroids)
+        {
+            Centroids = centroids;
+            Clusters = centroids.Length;
+            _rnd = new Random(0);
+        }
+
+        #endregion
+
+        public int Clusters { private set; get; }
+        public double[][] Centroids { private set; get; }
+
+        public void Fit(double[][] data)
         {
             int numTuples = data.Length;
             int numValues = data[0].Length;
             _clustering = new int[numTuples];
 
-            for (int k = 0; k < _numClusters; ++k) _centroids[k] = new double[numValues];
+            for (int k = 0; k < Clusters; ++k) Centroids[k] = new double[numValues];
 
             InitRandom(data);
 
@@ -32,32 +64,42 @@ namespace ClusterNumeric
             bool changed = true;
             int maxCount = numTuples * 10;
             int ct = 0;
-            
+
             while (changed == true && ct < maxCount)
             {
                 ++ct;
                 UpdateCentroids(data);
                 changed = UpdateClustering(data);
             }
+        } // Fit
 
-            var result = new int[numTuples];
-            Array.Copy(_clustering, result, _clustering.Length);
+        public IEnumerable<int> Predict(double[][] data)
+        {
+            var clusters = new List<int>();
+            var distances = new double[Clusters];
 
-            return result;
-        }
+            for (int i = 0; i < data.Length; i++)
+            {
+                for (int k = 0; k < Clusters; k++)
+                {
+                    distances[k] = Distance(data[i], Centroids[k]);
+                } //k
+                yield return MinIndex(distances);
+            } //i
+        } //Predict
 
         private bool UpdateClustering(double[][] data)
         {
             var changed = false;
             var newClustering = new int[_clustering.Length];
             Array.Copy(_clustering, newClustering, newClustering.Length);
-            var distances = new double[_numClusters];
+            var distances = new double[Clusters];
 
             for (int i = 0; i < data.Length; i++)
             {
-                for (int k = 0; k < _numClusters; k++)
+                for (int k = 0; k < Clusters; k++)
                 {
-                    distances[k] = Distance(data[i], _centroids[k]);
+                    distances[k] = Distance(data[i], Centroids[k]);
                 }
                 var newClusterId = MinIndex(distances);
 
@@ -70,14 +112,14 @@ namespace ClusterNumeric
 
             if (changed == false) return false;
 
-            var clusterCounts = new int[_numClusters];
+            var clusterCounts = new int[Clusters];
             for (int i = 0; i < data.Length; i++)
             {
                 var clusterId = newClustering[i];
                 ++clusterCounts[clusterId];
             }
 
-            for (int k = 0; k < _numClusters; k++)
+            for (int k = 0; k < Clusters; k++)
             {
                 if (clusterCounts[k] == 0) return false;
             }
@@ -109,22 +151,22 @@ namespace ClusterNumeric
             for (int j = 0; j < tuple.Length; ++j)
                 sumSquaredDiffs += Math.Pow(tuple[j] - centroid[j], 2);
             return Math.Sqrt(sumSquaredDiffs);
-        }
+        } //Distance
 
         private void UpdateCentroids(double[][] data)
         {
-            var clusterCounts = new int[_numClusters];
+            var clusterCounts = new int[Clusters];
             for (int i = 0; i < data.Length; i++)
             {
                 var clusterId = _clustering[i];
                 ++clusterCounts[clusterId];
             }
 
-            for (int k = 0; k < _centroids.Length; k++)
+            for (int k = 0; k < Centroids.Length; k++)
             {
-                for (int j = 0; j < _centroids[k].Length; j++)
+                for (int j = 0; j < Centroids[k].Length; j++)
                 {
-                    _centroids[k][j] = 0.0;
+                    Centroids[k][j] = 0.0;
                 }
             }
 
@@ -133,15 +175,15 @@ namespace ClusterNumeric
                 var clusterId = _clustering[i];
                 for (int j = 0; j < data[i].Length; j++)
                 {
-                    _centroids[clusterId][j] += data[i][j];
+                    Centroids[clusterId][j] += data[i][j];
                 }
             }
 
-            for (int k = 0; k < _centroids.Length; k++)
+            for (int k = 0; k < Centroids.Length; k++)
             {
-                for (int j = 0; j < _centroids[k].Length; j++)
+                for (int j = 0; j < Centroids[k].Length; j++)
                 {
-                    _centroids[k][j] /= clusterCounts[k];
+                    Centroids[k][j] /= clusterCounts[k];
                 }
             }
 
@@ -154,7 +196,7 @@ namespace ClusterNumeric
             for (int i = 0; i < numTuples; ++i)
             {
                 _clustering[i] = clusterId++;
-                if (clusterId == _numClusters) clusterId = 0;
+                if (clusterId == Clusters) clusterId = 0;
             }
 
             for (int i = 0; i < numTuples; i++)
